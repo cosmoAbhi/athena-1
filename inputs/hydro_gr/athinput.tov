@@ -193,23 +193,27 @@ xorder     = 2     # order of spatial reconstruction
 ncycle_out = 1      # interval for stdout summary info
 
 <mesh>
-nx1    = 32    # number of cells in x-direction
-x1min  = 0   # minimum x
-x1max  = 20  # maximum x
-ix1_bc = reflecting  # lower boundary
-ox1_bc = extrapolate_outflow  # upper boundary
+# radial coordinate
+nx1    = 56    # number of cells in r-direction
+x1min  = 0.001   # minimum r
+x1max  = 20.0  # maximum r
+x1rat  = 1.0476319576931545	#ratio of adjacent widths
+ix1_bc = user  # lower boundary
+ox1_bc = user  # upper boundary
 
-nx2    = 32   # number of cells in y-direction
-x2min  = 0  # minimum y
-x2max  = 20  # maximum y
-ix2_bc = reflecting # lower boundary
-ox2_bc = extrapolate_outflow # upper boundary
+# polar coordinate
+nx2    = 32   # number of cells in theta-direction
+x2min  = 0.0  # minimum theta
+x2max  = 3.1415926535897932  # maximum theta
+ix2_bc = polar # lower boundary
+ox2_bc = polar # upper boundary
 
-nx3    = 32        # number of cells in z-direction
-x3min  = 0   # minimum z
-x3max  = 20       # maximum z
-ix3_bc = reflecting  # lower  boundary
-ox3_bc = extrapolate_outflow  # upper boundary
+# azimuthal coordinate
+nx3    = 44        # number of cells in phi-direction
+x3min  = 0.0   # minimum phi
+x3max  = 6.2831853071795862      # maximum phi
+ix3_bc = periodic  # lower  boundary
+ox3_bc = periodic  # upper boundary
 
 refinement = static
 numlevel = 2
@@ -221,17 +225,17 @@ num_threads = 1
 <meshblock>
 
 
-nx1=16
-nx2=16
-nx3=16
+nx1 = 4
+nx2 = 4
+nx3 = 22
 
 <refinement1>
-x1min           = 0
-x1max           = 3
-x2min           = 0
-x2max           = 3
-x3min           = 0
-x3max           = 3
+x1min           = 0.001
+x1max           = 3.0
+x2min           = 0.9817477042468103
+x2max           = 2.1598449493429825
+x3min           = 0.0
+x3max           = 6.2831853071795862
 level           = 2
 
 
