@@ -24,14 +24,14 @@ file_type = hdf5  # HDF5 data dump
 variable  = prim  # variables to be output
 id        = prim  # filename
 dt        = 1.0   # time increment between outputs
-xdmf      = 0     # flag indicating whether XML auxiliary file should be output
+xdmf      = 1     # flag indicating whether XML auxiliary file should be output
 
 <output3>
 file_type = hdf5  # HDF5 data dump
 variable  = uov   # variables to be output
 id        = user  # filename
 dt        = 1.0   # time increment between outputs
-xdmf      = 0     # flag indicating whether XML auxiliary file should be output
+xdmf      = 1     # flag indicating whether XML auxiliary file should be output
 
 <output4>
 file_type = rst    # binary restart dump
