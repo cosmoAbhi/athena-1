@@ -48,14 +48,14 @@ ghost_zones=true
 #x1_slice = 0.0
 #x2_slice = 0.0
 
-<output4>
-file_type = tab
-variable  = adm
-dt        = 0.00001
-ghost_zones=true
-x2_slice = 0.0
-x3_slice = 0.0
-vc= true
+#<output4>
+#file_type = tab
+#variable  = adm
+#dt        = 0.00001
+#ghost_zones=true
+#x2_slice = 0.0
+#x3_slice = 0.0
+#vc= true
 
 #<output5>
 #file_type = tab
@@ -181,6 +181,15 @@ x3_slice = 0.0
 #x2_slice = 0.0
 #vc = true
 
+<output19>
+file_type = hdf5  # HDF5 data dump
+variable  = prim  # variables to be output
+id        = prim  # filename
+dt        = 100.0   # time increment between outputs
+xdmf      = 1     # flag indicating whether XML auxiliary file should be output
+ghost_zones=true
+x2_slice = 0.0
+x3_slice = 0.0
 
 
 
@@ -247,6 +256,8 @@ k_adi = 100                # adiabat K, p_gas = K rho^Gamma
 <problem>
 rhoc = 0.00128  # energy density at centre of star
 R0 = 10.0  # guess for radius of star
+rmin = 0.01
+dr = 0.01
 npts = 10000  # guess for number of points for TOV solver
 fatm = 1e-10  # set atmosphere rho to rho = rhomax * fatm
 fthr = 100.0  # set point to atmosphere if rho < fthr*fatm*rhomax
