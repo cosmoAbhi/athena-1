@@ -98,11 +98,17 @@ void Mesh::InitUserMeshData(ParameterInput *pin) {
   for (int v = 0; v < itov_nv; v++)
     tov->data[v] = (Real*) malloc(npts*sizeof(Real));
 
-  //Enroll user-defined boundary conditions 
+  // Enroll user-defined metric
+  EnrollUserMetric(TOV_background); 
+
+  // Enroll user-defined boundary conditions 
   EnrollUserBoundaryFunction(BoundaryFace::outer_x1, FixedBoundary);
   EnrollUserBoundaryFunction(BoundaryFace::outer_x2, FixedBoundary);
   EnrollUserBoundaryFunction(BoundaryFace::outer_x3, FixedBoundary);
   
+  // Enroll user-defined refinement condition
+  EnrollUserRefinementCondition(RefinementCondition);
+
   // Solve TOV equations, setting 1D inital data in tov->data
   TOV_solve(rhoc, rmin, dr, &npts);
   
