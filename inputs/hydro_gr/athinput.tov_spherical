@@ -225,7 +225,7 @@ x3max  = 6.2831853071795862  # maximum
 ix3_bc = periodic            # clockwise boundary
 ox3_bc = periodic            # counterclockwise boundary
 
-refinement = static
+refinement = none
 # numlevel = 3
 deref_count = 5
 

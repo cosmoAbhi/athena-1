@@ -153,6 +153,7 @@ GRUser::GRUser(MeshBlock *pmb, ParameterInput *pin, bool flag)
     coord_src_kji_.NewAthenaArray(3, NMETRIC, nc3, nc2, nc1);
     metric_face1_kji_.NewAthenaArray(2, NMETRIC, nc3, nc2, nc1+1);
     metric_face2_kji_.NewAthenaArray(2, NMETRIC, nc3, nc2+1, nc1);
+    //printf("Reached gr_user.cpp:155");
     metric_face3_kji_.NewAthenaArray(2, NMETRIC, nc3+1, nc2, nc1);
     trans_face1_kji_.NewAthenaArray(2, NMETRIC, nc3, nc2, nc1+1);
     trans_face2_kji_.NewAthenaArray(2, NMETRIC, nc3, nc2+1, nc1);

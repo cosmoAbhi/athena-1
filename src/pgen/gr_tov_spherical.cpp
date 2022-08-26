@@ -101,9 +101,16 @@ void Mesh::InitUserMeshData(ParameterInput *pin) {
   // Enroll user-defined metric
   EnrollUserMetric(TOV_background); 
 
-  // Enroll user-defined boundary conditions 
-  EnrollUserBoundaryFunction(BoundaryFace::inner_x1, FixedBoundary);
-  EnrollUserBoundaryFunction(BoundaryFace::outer_x1, FixedBoundary);
+  // Enroll user-defined boundary conditions
+  std::string inner_boundary = pin->GetString("mesh", "ix1_bc");
+  std::string outer_boundary = pin->GetString("mesh", "ox1_bc");
+
+  if (inner_boundary == "user") {
+  	EnrollUserBoundaryFunction(BoundaryFace::inner_x1, FixedBoundary);
+  }
+  if (outer_boundary == "user") {
+	EnrollUserBoundaryFunction(BoundaryFace::outer_x1, FixedBoundary);
+  }
  // EnrollUserBoundaryFunction(BoundaryFace::outer_x2, FixedBoundary);
  // EnrollUserBoundaryFunction(BoundaryFace::outer_x3, FixedBoundary);
   
