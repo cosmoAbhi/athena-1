@@ -177,6 +177,7 @@ def main(**kwargs):
         else:
             vals_right = 0.5 * (data[kwargs['quantity']]
                                 [-1, :, :] + data[kwargs['quantity']][0, :, :])
+            print(nx3)
             vals_left = 0.5 * (data[kwargs['quantity']][(nx3/2)-1, :, :]
                                + data[kwargs['quantity']][nx3 / 2, :, :])
 

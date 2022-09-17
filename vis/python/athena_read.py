@@ -332,7 +332,7 @@ def athdf(filename, raw=False, data=None, quantities=None, dtype=None, level=Non
           return_levels=False, subsample=False, fast_restrict=False, x1_min=None,
           x1_max=None, x2_min=None, x2_max=None, x3_min=None, x3_max=None, vol_func=None,
           vol_params=None, face_func_1=None, face_func_2=None, face_func_3=None,
-          center_func_1=None, center_func_2=None, center_func_3=None, num_ghost=0):
+          center_func_1=None, center_func_2=None, center_func_3=None, num_ghost=4):
     """Read .athdf files and populate dict of arrays of data.
 
 
@@ -465,7 +465,7 @@ def athdf(filename, raw=False, data=None, quantities=None, dtype=None, level=Non
                 else:
                     def vol_func(rm, rp, phim, phip, zm, zp):
                         return (rp**2-rm**2) * (phip-phim) * (zp-zm)
-            elif coord == 'spherical_polar' or coord == 'schwarzschild':
+            elif coord == 'spherical_polar' or coord == 'schwarzschild' or coord == 'gr_user':
                 if nx1 == 1 and nx2 == 1 and (nx3 == 1 or x3_rat == 1.0):
                     fast_restrict = True
                 else:
@@ -498,7 +498,7 @@ def athdf(filename, raw=False, data=None, quantities=None, dtype=None, level=Non
             elif coord == 'spherical_polar':
                 def center_func_1(xm, xp):
                     return 3.0/4.0 * (xp**4-xm**4) / (xp**3-xm**3)
-            elif coord == 'schwarzschild':
+            elif (coord == 'schwarzschild' or coord == 'gr_user'):
                 def center_func_1(xm, xp):
                     return (0.5*(xm**3+xp**3)) ** (1.0/3.0)
             else:
@@ -516,7 +516,7 @@ def athdf(filename, raw=False, data=None, quantities=None, dtype=None, level=Non
                     sp = np.sin(xp)
                     cp = np.cos(xp)
                     return (sp-xp*cp - sm+xm*cm) / (cm - cp)
-            elif coord == 'schwarzschild':
+            elif (coord == 'schwarzschild' or coord == 'gr_user'):
                 def center_func_2(xm, xp):
                     return np.arccos(0.5 * (np.cos(xm) + np.cos(xp)))
             else:
@@ -525,7 +525,7 @@ def athdf(filename, raw=False, data=None, quantities=None, dtype=None, level=Non
             if (coord == 'cartesian' or coord == 'cylindrical' or coord == 'tilted'
                     or coord == 'spherical_polar' or coord == 'minkowski'
                     or coord == 'sinusoidal' or coord == 'schwarzschild'
-                    or coord == 'kerr-schild'):
+                    or coord == 'kerr-schild' or coord == 'gr_user'):
 
                 def center_func_3(xm, xp):
                     return 0.5 * (xm+xp)
@@ -609,53 +609,53 @@ def athdf(filename, raw=False, data=None, quantities=None, dtype=None, level=Non
         x3m = f['x3f'][fine_block, 0]
         x3p = f['x3f'][fine_block, 1]
 
-        # Populate coordinate arrays
-        face_funcs = (face_func_1, face_func_2, face_func_3)
-        center_funcs = (center_func_1, center_func_2, center_func_3)
-        for d, nx, face_func, center_func in zip(range(1, 4), nx_vals, face_funcs,
-                                                 center_funcs):
-            xf = 'x' + repr(d) + 'f'
-            xv = 'x' + repr(d) + 'v'
-            if nx == 1:
-                xm = (x1m, x2m, x3m)[d-1]
-                xp = (x1p, x2p, x3p)[d-1]
-                data[xf] = np.array([xm, xp], dtype=dtype)
-            else:
-                xmin = f.attrs['RootGridX' + repr(d)][0]
-                xmax = f.attrs['RootGridX' + repr(d)][1]
-                xrat_root = f.attrs['RootGridX' + repr(d)][2]
-                if xrat_root == -1.0 and face_func is None:
-                    raise AthenaError('Must specify user-defined face_func_{0}'.format(d))
-                elif face_func is not None:
-                    if num_ghost > 0:
-                        raise AthenaError('Ghost zones incompatible with user-defined'
-                                          + ' coordinate spacing')
-                    data[xf] = face_func(xmin, xmax, xrat_root, nx+1)
-                elif xrat_root == 1.0:
-                    if np.all(levels == level):
-                        data[xf] = np.empty(nx + 1, dtype=dtype)
-                        for n_block in range(int((nx - 2*num_ghost)
-                                                 / (block_size[d-1] - 2*num_ghost))):
-                            sample_block = np.where(logical_locations[:, d-1]
-                                                    == n_block)[0][0]
-                            index_low = n_block * (block_size[d-1] - 2*num_ghost)
-                            index_high = index_low + block_size[d-1] + 1
-                            data[xf][index_low:index_high] = f[xf][sample_block, :]
-                    else:
-                        if num_ghost > 0:
-                            raise AthenaError('Cannot use ghost zones with different'
-                                              + ' refinement levels')
-                        data[xf] = np.linspace(xmin, xmax, nx + 1, dtype=dtype)
-                else:
-                    if num_ghost > 0:
-                        raise AthenaError('Ghost zones incompatible with non-uniform'
-                                          + ' coordinate spacing')
-                    xrat = xrat_root ** (1.0 / 2**level)
-                    data[xf] = (xmin + (1.0-xrat**np.arange(nx+1, dtype=dtype))
-                                / (1.0-xrat**nx) * (xmax-xmin))
-            data[xv] = np.empty(nx, dtype=dtype)
-            for i in range(nx):
-                data[xv][i] = center_func(data[xf][i], data[xf][i+1])
+        # # Populate coordinate arrays
+        # face_funcs = (face_func_1, face_func_2, face_func_3)
+        # center_funcs = (center_func_1, center_func_2, center_func_3)
+        # for d, nx, face_func, center_func in zip(range(1, 4), nx_vals, face_funcs,
+        #                                          center_funcs):
+        #     xf = 'x' + repr(d) + 'f'
+        #     xv = 'x' + repr(d) + 'v'
+        #     if nx == 1:
+        #         xm = (x1m, x2m, x3m)[d-1]
+        #         xp = (x1p, x2p, x3p)[d-1]
+        #         data[xf] = np.array([xm, xp], dtype=dtype)
+        #     else:
+        #         xmin = f.attrs['RootGridX' + repr(d)][0]
+        #         xmax = f.attrs['RootGridX' + repr(d)][1]
+        #         xrat_root = f.attrs['RootGridX' + repr(d)][2]
+        #         if xrat_root == -1.0 and face_func is None:
+        #             raise AthenaError('Must specify user-defined face_func_{0}'.format(d))
+        #         elif face_func is not None:
+        #             if num_ghost > 0:
+        #                 raise AthenaError('Ghost zones incompatible with user-defined'
+        #                                   + ' coordinate spacing')
+        #             data[xf] = face_func(xmin, xmax, xrat_root, nx+1)
+        #         elif xrat_root == 1.0:
+        #             if np.all(levels == level):
+        #                 data[xf] = np.empty(nx + 1, dtype=dtype)
+        #                 for n_block in range(int((nx - 2*num_ghost)
+        #                                          / (block_size[d-1] - 2*num_ghost))):
+        #                     sample_block = np.where(logical_locations[:, d-1]
+        #                                             == n_block)[0][0]
+        #                     index_low = n_block * (block_size[d-1] - 2*num_ghost)
+        #                     index_high = index_low + block_size[d-1] + 1
+        #                     data[xf][index_low:index_high] = f[xf][sample_block, :]
+        #             else:
+        #                 if num_ghost > 0:
+        #                     raise AthenaError('Cannot use ghost zones with different'
+        #                                       + ' refinement levels')
+        #                 data[xf] = np.linspace(xmin, xmax, nx + 1, dtype=dtype)
+        #         else:
+        #             if num_ghost > 0:
+        #                 raise AthenaError('Ghost zones incompatible with non-uniform'
+        #                                   + ' coordinate spacing')
+        #             xrat = xrat_root ** (1.0 / 2**level)
+        #             data[xf] = (xmin + (1.0-xrat**np.arange(nx+1, dtype=dtype))
+        #                         / (1.0-xrat**nx) * (xmax-xmin))
+        #     data[xv] = np.empty(nx, dtype=dtype)
+        #     for i in range(nx):
+        #         data[xv][i] = center_func(data[xf][i], data[xf][i+1])
 
         # Account for selection
         x1_select = False
