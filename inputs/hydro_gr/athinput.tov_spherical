@@ -130,13 +130,13 @@ ghost_zones=true
 #x2_slice = 0.0
 #vc = true
 
-<output13>
-file_type = tab
-variable  = prim
-dt        = 0.00001
-ghost_zones=true
-x2_slice = 0.0
-x3_slice = 0.0
+#<output13>
+#file_type = tab
+#variable  = prim
+#dt        = 0.00001
+#ghost_zones=true
+#x2_slice = 0.0
+#x3_slice = 0.0
 
 #<output14>
 #file_type = tab
@@ -185,33 +185,31 @@ x3_slice = 0.0
 file_type = hdf5  # HDF5 data dump
 variable  = prim  # variables to be output
 id        = prim  # filename
-dt        = 10.0   # time increment between outputs
+dt        = 100.0   # time increment between outputs
 xdmf      = 1     # flag indicating whether XML auxiliary file should be output
 ghost_zones=true
-x2_slice = 0.0
-x3_slice = 0.0
 
 
 
 <time>
-cfl_number = 0.25
+cfl_number = 0.3
 nlim       = -1
-tlim       = 100
+tlim       = 1000
 integrator = rk3    # time integration algorithm
 xorder     = 2     # order of spatial reconstruction
 ncycle_out = 1      # interval for stdout summary info
 
 <mesh>
 # radial coordinate in global root grid
-nx1    = 56                  # number of cells
-x1min  = 0.01               # minimum
+nx1    = 64                  # number of cells
+x1min  = 1.0               # minimum
 x1max  = 20.0               # maximum
 x1rat  = 1.0476319576931545  # ratio of adjacent widths
 ix1_bc = user                # inner boundary
 ox1_bc = user                # outer boundary
 
 # polar coordinate in global root grid
-nx2    = 32                  # number of cells in direction
+nx2    = 128                  # number of cells in direction
 x2min  = 0.0                 # minimum
 x2max  = 3.1415926535897932  # maximum
 x2rat  = 1.0                 # ration of adjacent cell widths
@@ -219,7 +217,7 @@ ix2_bc = polar               # upper boundary
 ox2_bc = polar               # lower boundary
 
 # azimuthal coordinate in global root grid
-nx3    = 44                  # number of cells in direction
+nx3    = 4                  # number of cells in direction
 x3min  = 0.0                 # minimum
 x3max  = 6.2831853071795862  # maximum
 ix3_bc = periodic            # clockwise boundary
@@ -235,13 +233,13 @@ num_threads = 1
 <meshblock>
 
 
-nx1 = 4
-nx2 = 4
-nx3 = 22
+nx1 = 16
+nx2 = 32
+nx3 = 4
 
 <refinement1>
-x1min           = 0.01
-x1max           = 3.0
+x1min           = 2.0
+x1max           = 4.0
 x2min           = 0.9817477042468103
 x2max           = 2.1598449493429825
 x3min           = 0.0
