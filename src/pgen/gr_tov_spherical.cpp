@@ -39,6 +39,14 @@ void FixedBoundary(MeshBlock *pmb, Coordinates *pcoord, AthenaArray<Real> &prim,
                    FaceField &bb, Real time, Real dt,
                    int il, int iu, int jl, int ju, int kl, int ku, int ngh);
 
+void InflowBoundary(MeshBlock *pmb, Coordinates *pcoord, AthenaArray<Real> &prim,
+                   FaceField &bb, Real time, Real dt,
+                   int il, int iu, int jl, int ju, int kl, int ku, int ngh);
+
+void OutflowBoundary(MeshBlock *pmb, Coordinates *pcoord, AthenaArray<Real> &prim,
+                   FaceField &bb, Real time, Real dt,
+                   int il, int iu, int jl, int ju, int kl, int ku, int ngh);
+
 Real MaxRho(MeshBlock* pmb, int iout);
 
 namespace {
@@ -106,10 +114,10 @@ void Mesh::InitUserMeshData(ParameterInput *pin) {
   std::string outer_boundary = pin->GetString("mesh", "ox1_bc");
 
   if (inner_boundary == "user") {
-  	EnrollUserBoundaryFunction(BoundaryFace::inner_x1, FixedBoundary);
+  	EnrollUserBoundaryFunction(BoundaryFace::inner_x1, InflowBoundary);
   }
   if (outer_boundary == "user") {
-	EnrollUserBoundaryFunction(BoundaryFace::outer_x1, FixedBoundary);
+	EnrollUserBoundaryFunction(BoundaryFace::outer_x1, OutflowBoundary);
   }
  // EnrollUserBoundaryFunction(BoundaryFace::outer_x2, FixedBoundary);
  // EnrollUserBoundaryFunction(BoundaryFace::outer_x3, FixedBoundary);
@@ -178,7 +186,8 @@ void MeshBlock::UserWorkBeforeOutput(ParameterInput *pin) {
 	Real d3u2 = (phydro->w(IVY,k+1,j,i) - phydro->w(IVY,k-1,j,i))/pcoord->dx3v(i);
 	Real d3u3 = (phydro->w(IVZ,k+1,j,i) - phydro->w(IVZ,k-1,j,i))/pcoord->dx3v(i);
 	
-        Real r = sqrt(pow(pcoord->x1f(i),2.)+ pow(pcoord->x2f(j),2.)+  pow(pcoord->x3f(k),2.) );
+        //Real r = sqrt(pow(pcoord->x1f(i),2.)+ pow(pcoord->x2f(j),2.)+  pow(pcoord->x3f(k),2.) );
+	Real r = pcoord->x1f(i);
 	user_out_var(0,k,j,i) = std::sqrt(-g(I00,i)); // lapse
 	user_out_var(1,k,j,i) = g(I11,i);        // gxx
 	user_out_var(2,k,j,i) = 2.*r * (std::pow(g(I11,i),0.25)-1.); // Mass
@@ -439,6 +448,181 @@ void FixedBoundary(MeshBlock *pmb, Coordinates *pcoord, AthenaArray<Real> &prim,
   return;
 }
 
+//----------------------------------------------------------------------------------------
+// Inflow boundary condition
+// Inputs:
+//   pmb: pointer to MeshBlock
+//   pcoord: pointer to Coordinates
+//   is,ie,js,je,ks,ke: indices demarkating active region
+// Outputs:
+//   prim: primitives set in ghost zones
+//   bb: face-centered magnetic field set in ghost zones
+// Notes:
+//   Density and pressure are copied from last active cell into ghost cells.
+//   Velocity is copied in the same way, except any primitive radial velocity (u^1 in the
+//       normal observer frame) is made 0 if it is positive. This limiter is more
+//       aggressive than acting on u^1 in the coordinate frame, but it is much simpler and
+//       it guarantees a valid extrapolated state.
+//   Magnetic field in the 2- and 3-directions is copied so as to preserve (exactly using
+//       pointwise formulas, approximately in a finite-area sense) flux per unit area. For
+//       example, 1-flux per unit area is
+//           B^1 \sqrt{-det(g)} / \sqrt{g_{22} g_{33} - g_{23} g_{23}},
+//       which is equal to
+//           B^1 (g^{01} g^{01} - g^{00} g^{11})^{-1/2}
+//       by Cramer's rule.
+//   Magnetic field in the 1-direction is set so as to make the finite-volume
+//       representation of divergence exactly 0 in each ghost cell.
+
+void InflowBoundary(MeshBlock *pmb, Coordinates *pcoord, AthenaArray<Real> &prim,
+    FaceField &bb, Real time, Real dt, int il, int iu, int jl, int ju, int kl, int ku,
+    int ngh) {
+  // Set hydro variables
+  for (int k = kl; k <= ku; ++k) {
+    for (int j = jl; j <= ju; ++j) {
+      for (int i = il - ngh; i <= il - 1; ++i) {
+        prim(IDN,k,j,i) = prim(IDN,k,j,il);
+        prim(IPR,k,j,i) = prim(IPR,k,j,il);
+        prim(IVX,k,j,i) = std::min(prim(IVX,k,j,il), static_cast<Real>(0.0));
+        prim(IVY,k,j,i) = prim(IVY,k,j,il);
+        prim(IVZ,k,j,i) = prim(IVZ,k,j,il);
+      }
+    }
+  }
+  if (!MAGNETIC_FIELDS_ENABLED) {
+    return;
+  }
+
+  // Prepare scratch arrays
+  AthenaArray<Real> &g = pmb->ruser_meshblock_data[0];
+  AthenaArray<Real> &gi = pmb->ruser_meshblock_data[1];
+
+  // Set B^2
+  for (int k = kl; k <= ku; ++k) {
+    for (int j = jl; j <= ju + 1; ++j) {
+      pcoord->Face2Metric(k, j, il - ngh, il, g, gi);
+      Real factor_active = 1.0 / std::sqrt(SQR(gi(I02,il)) - gi(I00,il) * gi(I22,il));
+      for (int i = il - ngh; i <= il - 1; ++i) {
+        Real factor_ghost = 1.0 / std::sqrt(SQR(gi(I02,i)) - gi(I00,i) * gi(I22,i));
+        bb.x2f(k,j,i) = bb.x2f(k,j,il) * factor_active / factor_ghost;
+      }
+    }
+  }
+
+  // Set B^3
+  for (int k = kl; k <= ku + 1; ++k) {
+    for (int j = jl; j <= ju; ++j) {
+      pcoord->Face3Metric(k, j, il - ngh, il, g, gi);
+      Real factor_active = 1.0 / std::sqrt(SQR(gi(I03,il)) - gi(I00,il) * gi(I33,il));
+      for (int i = il - ngh; i <= il - 1; ++i) {
+        Real factor_ghost = 1.0 / std::sqrt(SQR(gi(I03,i)) - gi(I00,i) * gi(I33,i));
+        bb.x3f(k,j,i) = bb.x3f(k,j,il) * factor_active / factor_ghost;
+      }
+    }
+  }
+
+  // Set B^1
+  for (int k = kl; k <= ku; ++k) {
+    for (int j = jl; j <= ju; ++j) {
+      for (int i = il - 1; i >= il - ngh; --i) {
+        bb.x1f(k,j,i) = (pcoord->GetFace1Area(k,j,i+1) * bb.x1f(k,j,i+1)
+            - pcoord->GetFace2Area(k,j,i) * bb.x2f(k,j,i)
+            + pcoord->GetFace2Area(k,j+1,i) * bb.x2f(k,j+1,i)
+            - pcoord->GetFace3Area(k,j,i) * bb.x3f(k,j,i)
+            + pcoord->GetFace3Area(k+1,j,i) * bb.x3f(k+1,j,i))
+            / pcoord->GetFace1Area(k,j,i);
+      }
+    }
+  }
+  return;
+} 
+
+//----------------------------------------------------------------------------------------
+// Outflow boundary condition
+// Inputs:
+//   pmb: pointer to MeshBlock
+//   pcoord: pointer to Coordinates
+//   is,ie,js,je,ks,ke: indices demarkating active region
+// Outputs:
+//   prim: primitives set in ghost zones
+//   bb: face-centered magnetic field set in ghost zones
+// Notes:
+//   Density and pressure are copied from last active cell into ghost cells.
+//   Velocity is copied in the same way, except any primitive radial velocity (u^1 in the
+//       normal observer frame) is made 0 if it is negative. This limiter is more
+//       aggressive than acting on u^1 in the coordinate frame, but it is much simpler and
+//       it guarantees a valid extrapolated state.
+//   Magnetic field in the 2- and 3-directions is copied so as to preserve (exactly using
+//       pointwise formulas, approximately in a finite-area sense) flux per unit area. For
+//       example, 1-flux per unit area is
+//           B^1 \sqrt{-det(g)} / \sqrt{g_{22} g_{33} - g_{23} g_{23}},
+//       which is equal to
+//           B^1 (g^{01} g^{01} - g^{00} g^{11})^{-1/2}
+//       by Cramer's rule.
+//   Magnetic field in the 1-direction is set so as to make the finite-volume
+//       representation of divergence exactly 0 in each ghost cell.
+
+void OutflowBoundary(MeshBlock *pmb, Coordinates *pcoord, AthenaArray<Real> &prim,
+    FaceField &bb, Real time, Real dt, int il, int iu, int jl, int ju, int kl, int ku,
+    int ngh) {
+  // Set hydro variables
+  for (int k = kl; k <= ku; ++k) {
+    for (int j = jl; j <= ju; ++j) {
+      for (int i = iu + 1; i <= iu + ngh; ++i) {
+        prim(IDN,k,j,i) = prim(IDN,k,j,iu);
+        prim(IPR,k,j,i) = prim(IPR,k,j,iu);
+        prim(IVX,k,j,i) = std::max(prim(IVX,k,j,iu), static_cast<Real>(0.0));
+        prim(IVY,k,j,i) = prim(IVY,k,j,iu);
+        prim(IVZ,k,j,i) = prim(IVZ,k,j,iu);
+      }
+    }
+  }
+  if (!MAGNETIC_FIELDS_ENABLED) {
+    return;
+  }
+
+  // Prepare scratch arrays
+  AthenaArray<Real> &g = pmb->ruser_meshblock_data[0];
+  AthenaArray<Real> &gi = pmb->ruser_meshblock_data[1];
+
+  // Set B^2
+  for (int k = kl; k <= ku; ++k) {
+    for (int j = jl; j <= ju + 1; ++j) {
+      pcoord->Face2Metric(k, j, iu, iu + ngh, g, gi);
+      Real factor_active = 1.0 / std::sqrt(SQR(gi(I02,iu)) - gi(I00,iu) * gi(I22,iu));
+      for (int i = iu + 1; i <= iu + ngh; ++i) {
+        Real factor_ghost = 1.0 / std::sqrt(SQR(gi(I02,i)) - gi(I00,i) * gi(I22,i));
+        bb.x2f(k,j,i) = bb.x2f(k,j,iu) * factor_active / factor_ghost;
+      }
+    }
+  }
+
+  // Set B^3
+  for (int k = kl; k <= ku + 1; ++k) {
+    for (int j = jl; j <= ju; ++j) {
+      pcoord->Face3Metric(k, j, iu, iu + ngh, g, gi);
+      Real factor_active = 1.0 / std::sqrt(SQR(gi(I03,iu)) - gi(I00,iu) * gi(I33,iu));
+      for (int i = iu + 1; i <= iu + ngh; ++i) {
+        Real factor_ghost = 1.0 / std::sqrt(SQR(gi(I03,i)) - gi(I00,i) * gi(I33,i));
+        bb.x3f(k,j,i) = bb.x3f(k,j,iu) * factor_active / factor_ghost;
+      }
+    }
+  }
+
+  // Set B^1
+  for (int k = kl; k <= ku; ++k) {
+    for (int j = jl; j <= ju; ++j) {
+      for (int i = iu + 2; i <= iu + ngh + 1; ++i) {
+        bb.x1f(k,j,i) = (pcoord->GetFace1Area(k,j,i-1) * bb.x1f(k,j,i-1)
+            + pcoord->GetFace2Area(k,j,i-1) * bb.x2f(k,j,i-1)
+            - pcoord->GetFace2Area(k,j+1,i-1) * bb.x2f(k,j+1,i-1)
+            + pcoord->GetFace3Area(k,j,i-1) * bb.x3f(k,j,i-1)
+            - pcoord->GetFace3Area(k+1,j,i-1) * bb.x3f(k+1,j,i-1))
+            / pcoord->GetFace1Area(k,j,i);
+      }
+    }
+  }
+  return;
+}
 
 namespace {
 
@@ -740,7 +924,7 @@ namespace {
       dg_dx1(I00) = -2. * exp(2.*phi) * dphi;
       dg_dx1(I11) = 2. * (rsch/r) * (drsch/r - rsch/(r*r));
       dg_dx1(I22) = 2. * r;
-      dg_dx1(I33) = 2 * r * pow(sin(theta),2.);
+      dg_dx1(I33) = 2. * r * pow(sin(theta),2.);
       dg_dx1(I01) = 0.;
       dg_dx1(I02) = 0.;
       dg_dx1(I03) = 0.;
@@ -798,8 +982,8 @@ namespace {
 
       dg_dx1(I00) = -2. * M*(r-M/2.)/(pow(r+M/2.,3.));
       dg_dx1(I11) = -2. * pow(1.+0.5*M/r,3)*M/(r*r) ;
-      dg_dx1(I22) = dg_dx1(I11);
-      dg_dx1(I33) = dg_dx1(I11);
+      dg_dx1(I22) = 2. * r;
+      dg_dx1(I33) = 2. * r * pow(sin(theta),2.);
       dg_dx1(I01) = 0.;
       dg_dx1(I02) = 0.;
       dg_dx1(I03) = 0.;
@@ -810,7 +994,7 @@ namespace {
       dg_dx2(I00) = 0.;
       dg_dx2(I11) = 0. ;
       dg_dx2(I22) = 0.;
-      dg_dx2(I33) = 2. * pow(r,2.) * sin(theta) * cos(theta);;
+      dg_dx2(I33) = 2. * pow(r,2.) * sin(theta) * cos(theta);
       dg_dx2(I01) = 0.;
       dg_dx2(I02) = 0.;
       dg_dx2(I03) = 0.;
@@ -874,5 +1058,4 @@ namespace {
     // otherwise, stay
     return 0;
   }
- 
 } // namespace
