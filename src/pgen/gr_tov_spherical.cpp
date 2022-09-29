@@ -35,10 +35,10 @@
 #endif
 
 // Declarations
-void FixedBoundary(MeshBlock *pmb, Coordinates *pcoord, AthenaArray<Real> &prim,
+/*void FixedBoundary(MeshBlock *pmb, Coordinates *pcoord, AthenaArray<Real> &prim,
                    FaceField &bb, Real time, Real dt,
                    int il, int iu, int jl, int ju, int kl, int ku, int ngh);
-
+*/
 void InflowBoundary(MeshBlock *pmb, Coordinates *pcoord, AthenaArray<Real> &prim,
                    FaceField &bb, Real time, Real dt,
                    int il, int iu, int jl, int ju, int kl, int ku, int ngh);
@@ -427,7 +427,7 @@ void Mesh::UserWorkAfterLoop(ParameterInput *pin) {
   return;
 }
 
-
+/*
 //----------------------------------------------------------------------------------------
 //! \fn 
 // \brief Fixed boundary condition
@@ -447,7 +447,7 @@ void FixedBoundary(MeshBlock *pmb, Coordinates *pcoord, AthenaArray<Real> &prim,
                    int il, int iu, int jl, int ju, int kl, int ku, int ngh) {
   return;
 }
-
+*/
 //----------------------------------------------------------------------------------------
 // Inflow boundary condition
 // Inputs:
@@ -482,7 +482,7 @@ void InflowBoundary(MeshBlock *pmb, Coordinates *pcoord, AthenaArray<Real> &prim
       for (int i = il - ngh; i <= il - 1; ++i) {
         prim(IDN,k,j,i) = prim(IDN,k,j,il);
         prim(IPR,k,j,i) = prim(IPR,k,j,il);
-        prim(IVX,k,j,i) = std::min(prim(IVX,k,j,il), static_cast<Real>(0.0));
+        prim(IVX,k,j,i) = prim(IVX,k,j,2 * il -i);
         prim(IVY,k,j,i) = prim(IVY,k,j,il);
         prim(IVZ,k,j,i) = prim(IVZ,k,j,il);
       }
@@ -570,7 +570,7 @@ void OutflowBoundary(MeshBlock *pmb, Coordinates *pcoord, AthenaArray<Real> &pri
       for (int i = iu + 1; i <= iu + ngh; ++i) {
         prim(IDN,k,j,i) = prim(IDN,k,j,iu);
         prim(IPR,k,j,i) = prim(IPR,k,j,iu);
-        prim(IVX,k,j,i) = std::max(prim(IVX,k,j,iu), static_cast<Real>(0.0));
+        prim(IVX,k,j,i) = prim(IVX,k,j,2 * iu - i);
         prim(IVY,k,j,i) = prim(IVY,k,j,iu);
         prim(IVZ,k,j,i) = prim(IVZ,k,j,iu);
       }
