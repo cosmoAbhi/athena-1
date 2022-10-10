@@ -148,7 +148,6 @@ Real MaxRho(MeshBlock* pmb, int iout) {
 
 void MeshBlock::InitUserMeshBlockData(ParameterInput *pin) {
   // Allocate 3 user output variables: lapse, gxx, m
-  // leftover from cowling approx runs
   AllocateUserOutputVariables(12);
   return;
 }
@@ -480,8 +479,8 @@ void InflowBoundary(MeshBlock *pmb, Coordinates *pcoord, AthenaArray<Real> &prim
   for (int k = kl; k <= ku; ++k) {
     for (int j = jl; j <= ju; ++j) {
       for (int i = il - ngh; i <= il - 1; ++i) {
-      //  prim(IDN,k,j,i) = prim(IDN,k,j,il);
-      //  prim(IPR,k,j,i) = prim(IPR,k,j,il);
+        prim(IDN,k,j,i) = prim(IDN,k,j,2 * il - i);
+        prim(IPR,k,j,i) = prim(IPR,k,j,2 * il - i);
         prim(IVX,k,j,i) = -prim(IVX,k,j,2 * il -i);
       //  prim(IVY,k,j,i) = prim(IVY,k,j,il);
       //  prim(IVZ,k,j,i) = prim(IVZ,k,j,il);
@@ -568,8 +567,8 @@ void OutflowBoundary(MeshBlock *pmb, Coordinates *pcoord, AthenaArray<Real> &pri
   for (int k = kl; k <= ku; ++k) {
     for (int j = jl; j <= ju; ++j) {
       for (int i = iu + 1; i <= iu + ngh; ++i) {
-      //  prim(IDN,k,j,i) = prim(IDN,k,j,iu);
-      //  prim(IPR,k,j,i) = prim(IPR,k,j,iu);
+        prim(IDN,k,j,i) = prim(IDN,k,j,2 * iu - i);
+        prim(IPR,k,j,i) = prim(IPR,k,j,2 * iu - i);
         prim(IVX,k,j,i) = -prim(IVX,k,j,2 * iu - i);
       //  prim(IVY,k,j,i) = prim(IVY,k,j,iu);
       //  prim(IVZ,k,j,i) = prim(IVZ,k,j,iu);

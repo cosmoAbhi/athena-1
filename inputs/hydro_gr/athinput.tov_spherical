@@ -187,8 +187,15 @@ variable  = prim  # variables to be output
 id        = prim  # filename
 dt        = 100.0   # time increment between outputs
 xdmf      = 1     # flag indicating whether XML auxiliary file should be output
-ghost_zones=true
+#ghost_zones=true
 
+<output20>
+file_type = hdf5  # HDF5 data dump
+variable  = uov  # variables to be output
+id        = uov  # filename
+dt        = 100.0   # time increment between outputs
+xdmf      = 1     # flag indicating whether XML auxiliary file should be output
+#ghost_zones=true
 
 
 <time>
@@ -223,7 +230,7 @@ x3max  = 6.2831853071795862  # maximum
 ix3_bc = periodic            # clockwise boundary
 ox3_bc = periodic            # counterclockwise boundary
 
-refinement = none
+refinement = static
 # numlevel = 3
 deref_count = 5
 
@@ -238,8 +245,8 @@ nx2 = 32
 nx3 = 4
 
 <refinement1>
-x1min           = 2.0
-x1max           = 4.0
+x1min           = 1.0
+x1max           = 5.0
 x2min           = 0.9817477042468103
 x2max           = 2.1598449493429825
 x3min           = 0.0
