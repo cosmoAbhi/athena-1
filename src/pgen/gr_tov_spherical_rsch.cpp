@@ -51,7 +51,7 @@ Real MaxRho(MeshBlock* pmb, int iout);
 
 namespace {
   int TOV_rhs(Real dr, Real *u, Real *k);
-  int TOV_solve(Real rhoc, Real rmin, Real dr, int *npts);
+  int TOV_solve(Real rhoc, Real rmin, Real dr, Real fatm, Real fthr, int *npts);
   int interp_locate(Real *x, int Nx, Real xval);
   void interp_lag4(Real *f, Real *x, int Nx, Real xv,
 		   Real *fv_p, Real *dfv_p, Real *ddfv_p );
@@ -93,7 +93,9 @@ void Mesh::InitUserMeshData(ParameterInput *pin) {
   // Read problem parameters
   Real rhoc = pin->GetReal("problem", "rhoc"); // Central value of energy density
   Real rmin = pin->GetReal("problem", "rmin");  // minimum radius to start TOV integration
-  Real dr = pin->GetReal("problem", "dr");      // radial step for TOV integration 
+  Real dr = pin->GetReal("problem", "dr");      // radial step for TOV integration
+  Real fatm = pin->GetReal("problem","fatm");   // set atmosphere rho to rho = rhomax * fatm
+  Real fthr = pin->GetReal("problem","fthr");   // set point to atmosphere if rho < fthr*fatm*rhomax
   int npts = pin->GetInteger("problem", "npts");    // number of max radial pts for TOV solver
   
   k_adi = pin->GetReal("hydro", "k_adi");
@@ -126,7 +128,7 @@ void Mesh::InitUserMeshData(ParameterInput *pin) {
   EnrollUserRefinementCondition(RefinementCondition);
 
   // Solve TOV equations, setting 1D inital data in tov->data
-  TOV_solve(rhoc, rmin, dr, &npts);
+  TOV_solve(rhoc, rmin, dr, fatm, fthr, &npts);
   
   // Add max(rho) output.
   AllocateUserHistoryOutput(1);
@@ -295,11 +297,11 @@ void MeshBlock::ProblemGenerator(ParameterInput *pin) {
     v_kji = 0.5*v_amp*(3.0*x_kji - x_kji*x_kji*x_kji);
 	} else {
 	  // Set exterior to atmos
-	  //rho_kji  = rho_atm;
-	  //pgas_kji = pre_atm;
+	  rho_kji  = rho_atm;
+	  pgas_kji = pre_atm;
     // Let the EOS decide how to set the atmosphere.
-    rho_kji = 0.0;
-    pgas_kji = 0.0;
+    //rho_kji = 0.0;
+    //pgas_kji = 0.0;
     v_kji = 0.0;
 	}
   phydro->w1(IDN, k, j, i) = rho_kji;
@@ -308,7 +310,7 @@ void MeshBlock::ProblemGenerator(ParameterInput *pin) {
   phydro->w1(IVY, k, j, i) = v_kji*sinth*sinphi;
   phydro->w1(IVZ, k, j, i) = v_kji*costh;
 
-  //peos->ApplyPrimitiveFloors(phydro->w_init, k, j, i);
+  peos->ApplyPrimitiveFloors(phydro->w1, k, j, i);
 
 	phydro->w(IDN,k,j,i) = phydro->w1(IDN,k,j,i);
 	phydro->w(IPR,k,j,i) = phydro->w1(IPR,k,j,i);
@@ -479,9 +481,9 @@ void InflowBoundary(MeshBlock *pmb, Coordinates *pcoord, AthenaArray<Real> &prim
   for (int k = kl; k <= ku; ++k) {
     for (int j = jl; j <= ju; ++j) {
       for (int i = il - ngh; i <= il - 1; ++i) {
-        prim(IDN,k,j,i) = prim(IDN,k,j,2 * il - i);
-        prim(IPR,k,j,i) = prim(IPR,k,j,2 * il - i);
-        prim(IVX,k,j,i) = -prim(IVX,k,j,2 * il -i);
+        prim(IDN,k,j,i) = prim(IDN,k,j,2 * il - i - 1);
+        prim(IPR,k,j,i) = prim(IPR,k,j,2 * il - i - 1);
+        prim(IVX,k,j,i) = -prim(IVX,k,j,2 * il - i - 1);
       //  prim(IVY,k,j,i) = prim(IVY,k,j,il);
       //  prim(IVZ,k,j,i) = prim(IVZ,k,j,il);
       }
@@ -567,9 +569,9 @@ void OutflowBoundary(MeshBlock *pmb, Coordinates *pcoord, AthenaArray<Real> &pri
   for (int k = kl; k <= ku; ++k) {
     for (int j = jl; j <= ju; ++j) {
       for (int i = iu + 1; i <= iu + ngh; ++i) {
-        prim(IDN,k,j,i) = prim(IDN,k,j,2 * iu - i);
-        prim(IPR,k,j,i) = prim(IPR,k,j,2 * iu - i);
-        prim(IVX,k,j,i) = -prim(IVX,k,j,2 * iu - i);
+        prim(IDN,k,j,i) = prim(IDN,k,j,2 * iu - i + 1);
+        prim(IPR,k,j,i) = prim(IPR,k,j,2 * iu - i + 1);
+        prim(IVX,k,j,i) = -prim(IVX,k,j,2 * iu - i + 1);
       //  prim(IVY,k,j,i) = prim(IVY,k,j,iu);
       //  prim(IVZ,k,j,i) = prim(IVZ,k,j,iu);
       }
@@ -675,7 +677,7 @@ namespace {
   // \brief Calculate right hand sides for TOV equations
   //
 
-  int TOV_solve(Real rhoc, Real rmin, Real dr, int *npts)  {
+  int TOV_solve(Real rhoc, Real rmin, Real dr, Real fatm, Real fthr, int *npts)  {
 
     std::stringstream msg;
     
@@ -708,7 +710,7 @@ namespace {
     Real rhoo = rhoc;
     int stop = 0;
     int n = 0;
-    const Real rho_zero = 0.; //TODO(SB) use atmosphere level
+    const Real rho_zero = fatm * rhoc; //TODO(SB) use atmosphere level
     const Real oosix = 1./6.;
     while (n < maxsize) {
 
@@ -738,7 +740,7 @@ namespace {
 
       // Stop if radius reached
       rhoo = u[TOV_IRHO];
-      if (rhoo < rho_zero) {
+      if (rhoo < fthr * rho_zero) {
 	break;
       }      
 
@@ -772,7 +774,7 @@ namespace {
     // Match to exterior
     const Real phiR  = u[TOV_IPHI];
     const Real IR    = u[TOV_IINT];
-    const Real phiRa = std::log(1.-2.*tov->M/tov->R);
+    const Real phiRa = 0.5*std::log(1.-2.*tov->M/tov->R);
     const Real C     = 1./(2*tov->R) * (std::sqrt(tov->R*tov->R-2*tov->M*tov->R)+tov->R-tov->M) * std::exp(-IR);
 
     for (int n = 0; n < tov->npts; n++) {
@@ -791,7 +793,7 @@ namespace {
     // Other metric fields
     for (int n = 0; n < tov->npts; n++) {
       tov->data[itov_psi4][n] = std::pow((1.0 - 2.0 * tov->M/tov->data[itov_rsch][n]), -1.0);
-      tov->data[itov_lapse][n] = std::exp(0.5 * tov->data[itov_phi][n]);
+      tov->data[itov_lapse][n] = std::exp(tov->data[itov_phi][n]);
     }
 
     // Metric field (regular origin)
@@ -885,7 +887,7 @@ namespace {
     const Real R = tov->R;  // Schwarzschild Radius of TOV star
 
     //Real rsch,drsch;
-    Real phi,dphi;
+    Real phi, dphi, m, dm;
     Real dummy;
     
     if (r<R) {
@@ -893,13 +895,13 @@ namespace {
       // In star interior use numerically found values of metric components
       // Interpolate initial data from function of schwarzschild radius to isotropic radius of given coordinate
 
-      //interp_lag4(tov->data[itov_rsch], tov->data[itov_rsch], tov->npts, r,
-      //            &rsch, &drsch,  &dummy);
+      interp_lag4(tov->data[itov_mass], tov->data[itov_rsch], tov->npts, r,
+                  &m, &dm,  &dummy);
       interp_lag4(tov->data[itov_phi], tov->data[itov_rsch], tov->npts, r,
                   &phi, &dphi,  &dummy);
       
-      g(I00) = -exp(phi);
-      g(I11) = pow((1.-2.0*M/r),-1.0);
+      g(I00) = -exp(2.*phi);
+      g(I11) = pow((1.-2.0*m/r),-1.0);
       g(I22) = pow(r,2.); 
       g(I33) = pow(r * sin(theta),2.); 
       g(I01) = 0.;
@@ -909,8 +911,8 @@ namespace {
       g(I13) = 0.;
       g(I23) = 0.;
 
-      g_inv(I00) = -exp(-phi);
-      g_inv(I11) = (1.-2.0*M/r);
+      g_inv(I00) = -exp(-2.*phi);
+      g_inv(I11) = (1.-2.0*m/r);
       g_inv(I22) = pow(1./r, 2.);
       g_inv(I33) = pow(1./(r * sin(theta)), 2.);
       g_inv(I01) = 0.;
@@ -920,8 +922,8 @@ namespace {
       g_inv(I13) = 0.;
       g_inv(I23) = 0.;
 
-      dg_dx1(I00) = -exp(phi) * dphi;
-      dg_dx1(I11) = -pow((1.-2.0*M/r),-2.0) * 2. * M/pow(r, 2.0);
+      dg_dx1(I00) = -exp(2.*phi) * 2.0 * dphi;
+      dg_dx1(I11) = -pow((1.-2.0*m/r),-2.0) * 2. * (r * dm - m)/pow(r, 2.0);
       dg_dx1(I22) = 2. * r;
       dg_dx1(I33) = 2. * r * pow(sin(theta),2.);
       dg_dx1(I01) = 0.;
