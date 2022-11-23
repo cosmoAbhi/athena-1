@@ -1,9 +1,9 @@
 <comment>
 problem   = Evolution of single TOV star w dynamical metric
-configure = ./configure.py --prob=gr_tov --coord=gr_dynamical --eos=adiabatictaudyn --flux=llftaudyn -gfz --nghost=4 --ncghost=4 -vertex
+#configure = ./configure.py --prob=gr_tov --coord=gr_dynamical --eos=adiabatictaudyn --flux=llftaudyn -gfz --nghost=4 --ncghost=4 -vertex
 
 <job>
-problem_id = gr_tov
+problem_id = gr_tov_spherical
 
 #<z4c>
 #dt_assert_is_finite = 1   # whatever values, if zero / missing these tasks are not triggered
@@ -44,7 +44,7 @@ problem_id = gr_tov
 #file_type = tab
 #variable  = cons
 #dt        = 0.00001
-ghost_zones=true
+#ghost_zones=true
 #x1_slice = 0.0
 #x2_slice = 0.0
 
@@ -187,7 +187,7 @@ variable  = prim  # variables to be output
 id        = prim  # filename
 dt        = 100.0   # time increment between outputs
 xdmf      = 1     # flag indicating whether XML auxiliary file should be output
-#ghost_zones=true
+ghost_zones=true
 
 <output20>
 file_type = hdf5  # HDF5 data dump
@@ -195,15 +195,20 @@ variable  = uov  # variables to be output
 id        = uov  # filename
 dt        = 100.0   # time increment between outputs
 xdmf      = 1     # flag indicating whether XML auxiliary file should be output
-#ghost_zones=true
+ghost_zones=true
+
+<output21>
+file_type   = hst      # plaintext history summary
+dt          = 0.1      # time increment between outputs
+data_format = %24.16e  # output precision
 
 
 <time>
 cfl_number = 0.3
 nlim       = -1
-tlim       = 1000
+tlim       = 1000.0
 integrator = rk3    # time integration algorithm
-xorder     = 2     # order of spatial reconstruction
+xorder     = 3     # order of spatial reconstruction
 ncycle_out = 1      # interval for stdout summary info
 
 <mesh>
@@ -230,7 +235,7 @@ x3max  = 6.2831853071795862  # maximum
 ix3_bc = periodic            # clockwise boundary
 ox3_bc = periodic            # counterclockwise boundary
 
-refinement = static
+refinement = none
 # numlevel = 3
 deref_count = 5
 
@@ -262,6 +267,8 @@ a = 0 # leave at 0
 <hydro>
 gamma = 2  # ratio of specific heats Gamma
 k_adi = 100                # adiabat K, p_gas = K rho^Gamma
+rho_min   = 1.0e-10              # floor on rho given by rho_min ...
+rho_pow   = -1.5                # ... * r^rho_pow
 
 <problem>
 rhoc = 0.00128  # energy density at centre of star
